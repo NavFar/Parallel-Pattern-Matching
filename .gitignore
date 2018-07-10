@@ -1,0 +1,5 @@
+Inputs/*
+EasyBMP/*.o
+*.o
+*out
+*.pdf
