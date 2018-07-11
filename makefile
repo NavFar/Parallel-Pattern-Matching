@@ -14,13 +14,13 @@ libDir = ./EasyBMP/
 #|  _| (_| | | | (_| | | | | | | | | | (_| | | | | (_| |           #
 #|_|  \__,_|_|  \__,_|_| |_|_| |_| |_|\__,_|_| |_|\__,_|           #
 ####################################################################
-serial: EasyBMP serial.cpp
-	$(CC) $(CFLAGS) $(libDir)EasyBMP.o serial.cpp -o serial.out
-
-EasyBMP: $(libDir)EasyBMP.cpp $(libDir)EasyBMP*.h
+# .PHONY:EasyBMP serial
+serial: EasyBMP.o serial.cpp
+	$(CC) $(CFLAGS) $(libDir)EasyBMP.o serial.cpp -o serial
+EasyBMP.o: $(libDir)EasyBMP.cpp
 	$(CC) $(CFLAGS) -c $(libDir)EasyBMP.cpp -o $(libDir)EasyBMP.o
 libClean:
 	rm -rf $(libDir)*.o
 clean:
 	rm -rf *.o
-	rm -rf *.out
+	rm -rf serial
