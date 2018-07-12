@@ -40,4 +40,5 @@ bool CreateGrayscaleColorTable( BMP& InputImage );
 
 bool Rescale( BMP& InputImage, char mode, int NewDimension );
 void monoChromatic(BMP &inputImage);
+void rotateImage(BMP &inputImage,BMP &outputImage);
 #endif

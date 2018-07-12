@@ -1931,3 +1931,13 @@ void monoChromatic(BMP &inputImage){
                 }
         }
 }
+void rotateImage(BMP &inputImage,BMP &outputImage){
+        outputImage.SetSize(inputImage.TellHeight(),inputImage.TellWidth());
+        for(int i=0; i<inputImage.TellWidth(); i++)
+        {
+                for(int j=0; j<inputImage.TellHeight(); j++)
+                {
+                        outputImage.SetPixel(j,inputImage.TellWidth()-i-1, *inputImage(i,j));
+                }
+        }
+}
