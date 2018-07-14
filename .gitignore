@@ -3,3 +3,4 @@ EasyBMP/*.o
 *.o
 *out
 *.pdf
+*.odp

@@ -15,6 +15,9 @@ libDir = ./EasyBMP/
 #|_|  \__,_|_|  \__,_|_| |_|_| |_| |_|\__,_|_| |_|\__,_|           #
 ####################################################################
 # .PHONY:EasyBMP serial
+all: parallel serial
+parallel:	EasyBMP.o parallel.cu
+	nvcc $(libDir)EasyBMP.o parallel.cu -o parallel
 serial: EasyBMP.o serial.cpp
 	$(CC) $(CFLAGS) $(libDir)EasyBMP.o serial.cpp -o serial
 EasyBMP.o: $(libDir)EasyBMP.cpp
@@ -24,3 +27,4 @@ libClean:
 clean:
 	rm -rf *.o
 	rm -rf serial
+	rm -rf parallel
