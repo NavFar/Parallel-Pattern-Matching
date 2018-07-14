@@ -54,7 +54,6 @@ void patternMatching(BMP &image,BMP& pattern,vector<uint>& res){
                                      (image(i,j)->Blue*image(i,j)->Blue))/3;
                 }
         }
-        cout<<IMult[941][1131];
         double maxValue=THRESHOLD;
         for(int i=0; i<image.TellWidth()-pattern.TellWidth(); i++)
         {
