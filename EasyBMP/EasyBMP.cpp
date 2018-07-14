@@ -1937,7 +1937,7 @@ void rotateImage(BMP &inputImage,BMP &outputImage){
         {
                 for(int j=0; j<inputImage.TellHeight(); j++)
                 {
-                        outputImage.SetPixel(j,inputImage.TellWidth()-i-1, *inputImage(i,j));
+                        outputImage.SetPixel(inputImage.TellHeight()-1-j,i, *inputImage(i,j));
                 }
         }
 }
