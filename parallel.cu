@@ -13,6 +13,7 @@ using namespace std;
 #include <device_launch_parameters.h>
 #define BLOCK_SIZE 512
 #define THRESHOLD 0.999
+#define MIN_GPU_ARRAY_SIZE 2
 ////////////////////////////////////////////////////////////
 /*_  __                    _
  | |/ /___ _ __ _ __   ___| |___
@@ -21,12 +22,14 @@ using namespace std;
  |_|\_\___|_|  |_| |_|\___|_|___/
  */
 ////////////////////////////////////////////////////////////
-__global__ void corr(RGBpixel *image,RGBpixel*pattern,uint* size,long patternMultRes)
+__global__ void corr(RGBpixel *image,RGBpixel*pattern,uint* size,long patternMultRes,uint * res)
 {
+        extern __shared__ int fit[];
         int overalIndex=blockIdx.x * blockDim.x +threadIdx.x;
         int imageIIndex=overalIndex/size[0];
         int imageJIndex=overalIndex%size[0];
-        if(imageIIndex>=size[0]-size[2]||imageJIndex>=size[1]-size[3])
+        fit[threadIdx.x]=0;
+        if(imageIIndex>size[0]-size[2]||imageJIndex>size[1]-size[3])
                 return;
         long top=0;
         long bot=0;
@@ -48,7 +51,15 @@ __global__ void corr(RGBpixel *image,RGBpixel*pattern,uint* size,long patternMul
                 }
         }
         if((top/sqrt((float)(patternMultRes*bot)))>=THRESHOLD)
-                printf("%d,%d\n",imageIIndex,imageJIndex);
+                fit[threadIdx.x]=1;
+        __syncthreads();
+        for(uint step=blockDim.x/2; step>0; step>>=1) {
+                if(threadIdx.x<step)
+                        fit[threadIdx.x]+=fit[threadIdx.x+step];
+                __syncthreads();
+        }
+        if(threadIdx.x==0)
+                res[blockIdx.x]=fit[0];
 
 }
 ////////////////////////////////////////////////////////////
@@ -75,6 +86,9 @@ __global__ void patternMultSum(RGBpixel * pattern, uint * size,long * result)
                 result[blockIdx.x]=load[0];
 }
 ////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////
 void cudaDeviceWarmUp(int devID=0){
         cudaSetDevice(devID);
         cudaError_t error;
@@ -98,11 +112,11 @@ void cudaDeviceWarmUp(int devID=0){
         }
         else
         {
-                printf("GPU Device %d: \"%s\" with compute capability %d.%d\n", devID, deviceProp.name, deviceProp.major, deviceProp.minor);
+                // printf("GPU Device %d: \"%s\" with compute capability %d.%d\n", devID, deviceProp.name, deviceProp.major, deviceProp.minor);
         }
 }
 ////////////////////////////////////////////////////////////
-void runCor(BMP pattern,BMP image, long multRes)
+long runCor(BMP pattern,BMP image, long multRes)
 {
         cudaError_t error;
         RGBpixel *patternData;
@@ -171,6 +185,13 @@ void runCor(BMP pattern,BMP image, long multRes)
                 printf("cudaMemcpy (d_patternData, patternData) returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
                 exit(EXIT_FAILURE);
         }
+        uint * d_res;
+        error = cudaMalloc((void **)&d_res,  numberOfBlocks*sizeof (uint));
+        if (error != cudaSuccess)
+        {
+                printf("cudaMalloc d_input returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
+                exit(EXIT_FAILURE);
+        }
         /////////////////////// grid and threads
         dim3 grid(numberOfBlocks,1,1);
         dim3 threads(BLOCK_SIZE,1,1);
@@ -195,7 +216,7 @@ void runCor(BMP pattern,BMP image, long multRes)
                 fprintf(stderr, "Failed to record start event (error code %s)!\n", cudaGetErrorString(error));
                 exit(EXIT_FAILURE);
         }
-        corr<<< grid, threads>>> (d_imageData,d_patternData,d_size,multRes);
+        corr<<< grid, threads,BLOCK_SIZE *sizeof(int)>>> (d_imageData,d_patternData,d_size,multRes,d_res);
         error = cudaGetLastError();
         if (error != cudaSuccess)
         {
@@ -221,10 +242,25 @@ void runCor(BMP pattern,BMP image, long multRes)
                 fprintf(stderr, "Failed to get time elapsed between events (error code %s)!\n", cudaGetErrorString(error));
                 exit(EXIT_FAILURE);
         }
+        uint * res=new uint[numberOfBlocks];
+        error = cudaMemcpy(res,d_res, numberOfBlocks *sizeof (uint), cudaMemcpyDeviceToHost);
+        if (error != cudaSuccess)
+        {
+                printf("cudaMemcpy (d_patternData, patternData) returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
+                exit(EXIT_FAILURE);
+        }
         cudaFree(d_size);
         cudaFree(d_imageData);
         cudaFree(d_patternData);
+        cudaFree(d_res);
         free(imageData);
+        long total=0;
+        for(int i=0; i<numberOfBlocks; i++)
+        {
+                total+=res[i];
+        }
+        free(res);
+        return total;
 
 }
 ////////////////////////////////////////////////////////////
@@ -337,27 +373,37 @@ long runPatternMult(BMP pattern)
         long sum=0;
         for(int i=0; i<numberOfBlocks; i++)
                 sum+=patternSum[i];
-        // cout<<sum<<endl;
         cudaFree(d_patternData);
         cudaFree(d_patternDim);
         cudaFree(d_patternSum);
-        free(patternSum);
         free(patternData);
+        free(patternSum);
         return sum;
 
 }
-// void runCor(RGBpixel * d_pattern,BMP image, long multRes,uint patternWidth, uint patternHeight)
-
 ////////////////////////////////////////////////////////////
-int main()
+int main( int argc, char* argv[] )
 {
+        if(argc<3 || (argc-1)%2!=0)
+        {
+                cout<<"Wrong number of arguments \nYou should give arguments to program like this.\n[program name] image1.bmp template1.bmp image2.bmp template2.bmp ..."<<endl;
+                exit(1);
+        }
         cudaDeviceWarmUp();
-        BMP pattern,rPattern,image;
-        long patternMultSum=0;
-        image.ReadFromFile("Inputs/collection.bmp");
-        pattern.ReadFromFile("Inputs/collection_coin.bmp");
-        patternMultSum=runPatternMult(pattern);
-        runCor(pattern,image,patternMultSum);
-        rotateImage(pattern, rPattern);
-        runCor(rPattern,image,patternMultSum);
+        for(int i=1; i<argc; i+=2)
+        {
+                BMP pattern,rPattern,image;
+                long patternMultSum=0;
+                image.ReadFromFile(argv[i]);
+                pattern.ReadFromFile(argv[i+1]);
+                auto start_time = chrono::high_resolution_clock::now();
+                patternMultSum=runPatternMult(pattern);
+                long res1=runCor(pattern,image,patternMultSum);
+                rotateImage(pattern, rPattern);
+                long res2=runCor(rPattern,image,patternMultSum);
+                auto end_time = chrono::high_resolution_clock::now();
+                auto totalTime = chrono::duration_cast<chrono::milliseconds>(end_time - start_time);
+                // cout<<totalTime.count()<<" Seconds.\n";
+                cout<<res1+res2<<endl;
+        }
 }
