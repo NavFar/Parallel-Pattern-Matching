@@ -24,12 +24,7 @@ int main( int argc, char* argv[] )
                 auto end_time = chrono::high_resolution_clock::now();
                 auto totalTime = chrono::duration_cast<chrono::seconds>(end_time - start_time);
                 cout<<(res1.size())/2<<" times.\n";
-                cout<<totalTime.count()<<" Seconds.\n";
-                for(uint j=0; j<res1.size(); j+=1)
-                {
-                        cout<<res1.at(j)<<"\t ";
-                }
-                cout<<endl;
+                // cout<<totalTime.count()<<" Seconds.\n";
         }
         return 0;
 }
