@@ -12,7 +12,7 @@ using namespace std;
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #define BLOCK_SIZE 512
-#define THRESHOLD 0.999
+#define THRESHOLD 0.9999
 #define MIN_GPU_ARRAY_SIZE 2
 ////////////////////////////////////////////////////////////
 /*_  __                    _
@@ -403,7 +403,7 @@ int main( int argc, char* argv[] )
                 long res2=runCor(rPattern,image,patternMultSum);
                 auto end_time = chrono::high_resolution_clock::now();
                 auto totalTime = chrono::duration_cast<chrono::milliseconds>(end_time - start_time);
-                // cout<<totalTime.count()<<" Seconds.\n";
+                cout<<totalTime.count()<<" MilliSeconds.\n";
                 cout<<res1+res2<<endl;
         }
 }
